@@ -14,32 +14,34 @@
         .loader { border: 4px solid #111; border-top: 4px solid var(--neon); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .btn { background: var(--neon); color: black; border: none; padding: 16px; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; font-size: 15px; text-transform: uppercase; margin-top: 10px; text-decoration: none; display: block; }
-        .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+        .btn:active { transform: scale(0.98); }
         .key-box { display: none; margin-top: 10px; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .key-display { font-size: 19px; color: #FFEB3B; font-weight: bold; background: #1a1a1a; padding: 18px; border-radius: 12px; border: 1px solid rgba(255,235,59,0.3); display: block; margin: 15px 0; word-break: break-all; letter-spacing: 1px; }
+        .instruction { font-size: 12px; color: #aaa; margin-top: 15px; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div class="card">
         <h2>SIFEXPING PRO</h2>
-        <div id="status-text" class="status">Hệ thống xác thực tự động</div>
+        <div id="status-text" class="status">Hệ thống sẵn sàng</div>
         <div class="loader" id="loader"></div>
 
         <div id="step-start">
-            <p style="font-size: 14px; line-height: 1.6; color: #ccc; margin-bottom: 20px;">Hệ thống đang sẵn sàng. Nhấn nút để bắt đầu lấy link rút gọn.</p>
+            <p style="font-size: 14px; color: #ccc; margin-bottom: 20px;">Nhấn nút để lấy link rút gọn và nhận Key 24h.</p>
             <button id="btn-main" class="btn" onclick="generateShortLink()">LẤY KEY TỰ ĐỘNG</button>
+            <div class="instruction">Lưu ý: Sau khi vượt link xong, Key sẽ tự động hiển thị tại đây.</div>
         </div>
 
         <div id="step-result" class="key-box">
-            <p style="color: #4CAF50; font-weight: bold; margin-bottom: 5px;">THÀNH CÔNG!</p>
-            <p style="font-size: 12px; color: #888;">Dữ liệu đã được ghi đè lên GitHub</p>
+            <p style="color: #4CAF50; font-weight: bold;">ĐÃ CẬP NHẬT MÁY CHỦ!</p>
             <span class="key-display" id="final-key">...</span>
             <button class="btn" onclick="copyKey()">SAO CHÉP MÃ KEY</button>
         </div>
     </div>
 
     <script>
+        // --- CẤU HÌNH ---
         const GITHUB_USER = "nguyentieu08";
         const GITHUB_REPO = "SifexPing_Key";
         const GITHUB_FILE = "keys.txt";
@@ -47,66 +49,50 @@
         const LINK4M_API = "6535cd3e87fc4d228f7e0fb1"; 
 
         const params = new URLSearchParams(window.location.search);
-        const deviceId = params.get('device') || "DEVICE_ERROR";
+        const deviceId = params.get('device') || "DEVICE_UNKNOWN";
         const isDone = params.get('done') === 'true';
 
+        // Xử lý khi quay lại sau khi vượt link
         if (isDone) {
             document.getElementById('step-start').style.display = 'none';
-            document.getElementById('status-text').innerText = "Đang xử lý dữ liệu GitHub...";
             document.getElementById('loader').style.display = 'block';
+            document.getElementById('status-text').innerText = "Đang kiểm tra kết quả & ghi đè GitHub...";
             processKeyUpdate();
         }
 
-        async function generateShortLink() {
-            if(deviceId === "DEVICE_ERROR") {
-                alert("Lỗi: Vui lòng mở trang web này từ ứng dụng SifexPing!");
-                return;
-            }
-
-            const btn = document.getElementById('btn-main');
+        function generateShortLink() {
             const status = document.getElementById('status-text');
-            const loader = document.getElementById('loader');
-
-            btn.disabled = true;
-            status.innerText = "Đang tạo link vượt (Link4M)...";
-            loader.style.display = "block";
-
+            status.innerText = "Vui lòng vượt link ở cửa sổ mới...";
+            
+            // Đường dẫn đích sau khi người dùng vượt xong
             const currentUrl = window.location.href.split('?')[0];
-            const callbackUrl = `${currentUrl}?device=${deviceId}&done=true`;
-            const apiUrl = `https://link4m.co/api-shorten/v2?api=${LINK4M_API}&url=${encodeURIComponent(callbackUrl)}`;
+            const callback = `${currentUrl}?device=${deviceId}&done=true`;
+            
+            // Link gọi API trực tiếp của Link4M
+            const apiUrl = `https://link4m.co/api-shorten/v2?api=${LINK4M_API}&url=${encodeURIComponent(callback)}`;
 
-            try {
-                // Thay vì chuyển hướng trực tiếp, ta fetch để lấy link rút gọn
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                if (data.status === "success" && data.shortenedUrl) {
-                    // Chuyển hướng người dùng đến trang vượt link thực tế
-                    window.location.href = data.shortenedUrl;
-                } else {
-                    throw new Error(data.message || "Lỗi không xác định từ Link4M");
-                }
-            } catch (err) {
-                loader.style.display = "none";
-                btn.disabled = false;
-                status.innerText = "Lỗi tạo link. Vui lòng thử lại!";
-                alert("Lỗi: " + err.message);
-            }
+            // Mở link API trong tab mới. 
+            // Link4M API trả về JSON, người dùng chỉ cần click vào link trong JSON đó.
+            window.open(apiUrl, '_blank');
+            
+            // Thông báo cho người dùng
+            alert("Hệ thống đã mở Link API. Vui lòng:\n1. Copy link sau chữ 'shortenedUrl'.\n2. Dán vào trình duyệt và vượt link.\n3. Key sẽ hiện tại đây sau khi bạn hoàn tất.");
         }
 
         async function processKeyUpdate() {
             try {
+                // Tạo Secret mới
                 const newSecret = "SFX-" + Math.random().toString(36).substring(2, 12).toUpperCase();
                 const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
                 
+                // 1. Lấy SHA
                 const getRes = await fetch(apiUrl, {
                     headers: { "Authorization": `token ${GITHUB_TOKEN}` }
                 });
-                
-                if (!getRes.ok) throw new Error("GitHub Connection Error");
+                if (!getRes.ok) throw new Error("GitHub Auth Failed");
                 const fileData = await getRes.json();
-                const currentSha = fileData.sha;
-
+                
+                // 2. Ghi đè file keys.txt
                 const updateRes = await fetch(apiUrl, {
                     method: "PUT",
                     headers: { 
@@ -114,9 +100,9 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        message: `AutoUpdate: Device ${deviceId}`,
+                        message: `AutoKey: ${deviceId}`,
                         content: btoa(newSecret),
-                        sha: currentSha
+                        sha: fileData.sha
                     })
                 });
 
@@ -124,14 +110,14 @@
                     const today = new Date().toISOString().slice(0, 10);
                     const raw = deviceId + newSecret + today;
                     const hash = CryptoJS.SHA256(raw).toString().toUpperCase();
-                    const finalKey = `Sifex-Ping-${hash.substring(0, 4)}-${hash.substring(4, 8)}`;
+                    const displayKey = `Sifex-Ping-${hash.substring(0, 4)}-${hash.substring(4, 8)}`;
                     
                     document.getElementById('loader').style.display = 'none';
                     document.getElementById('status-text').style.display = 'none';
                     document.getElementById('step-result').style.display = 'block';
-                    document.getElementById('final-key').innerText = finalKey;
+                    document.getElementById('final-key').innerText = displayKey;
                 } else {
-                    throw new Error("Ghi file GitHub thất bại");
+                    throw new Error("Ghi file thất bại");
                 }
             } catch (err) {
                 document.getElementById('loader').style.display = 'none';
